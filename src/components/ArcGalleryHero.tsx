@@ -63,6 +63,23 @@ const ArcGalleryHero = ({
     return () => window.removeEventListener('wheel', preventScroll);
   }, [isOverGallery]);
 
+  useEffect(() => {
+    if (selectedIndex === null) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        setSelectedIndex(prev => prev === null ? null : (prev - 1 + images.length) % images.length);
+      } else if (e.key === 'ArrowRight') {
+        setSelectedIndex(prev => prev === null ? null : (prev + 1) % images.length);
+      } else if (e.key === 'Escape') {
+        setSelectedIndex(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedIndex, images.length]);
+
   const handleWheel = (e: React.WheelEvent) => {
     if (isOverGallery) {
       e.preventDefault();
@@ -182,16 +199,40 @@ const ArcGalleryHero = ({
           className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
           onClick={() => setSelectedIndex(null)}
         >
+          <button
+            onClick={() => setSelectedIndex(null)}
+            className="absolute top-4 right-4 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white hover:text-primary transition-all text-2xl font-bold flex items-center justify-center backdrop-blur-sm"
+            title="Закрыть (Esc)"
+          >
+            ✕
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedIndex((prev) => prev === null ? null : (prev - 1 + images.length) % images.length);
+            }}
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white hover:text-primary transition-all text-2xl font-bold flex items-center justify-center backdrop-blur-sm"
+            title="Предыдущая (←)"
+          >
+            ‹
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedIndex((prev) => prev === null ? null : (prev + 1) % images.length);
+            }}
+            className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white hover:text-primary transition-all text-2xl font-bold flex items-center justify-center backdrop-blur-sm"
+            title="Следующая (→)"
+          >
+            ›
+          </button>
+
           <div 
             className="relative max-w-5xl w-full max-h-[90vh] animate-fade-in"
             onClick={(e) => e.stopPropagation()}
           >
-            <button
-              onClick={() => setSelectedIndex(null)}
-              className="absolute -top-12 right-0 text-white hover:text-primary transition-colors text-2xl font-bold"
-            >
-              ✕
-            </button>
             <img
               src={images[selectedIndex]}
               alt=""
@@ -201,6 +242,9 @@ const ArcGalleryHero = ({
                 boxShadow: '0 0 60px 20px rgba(139, 92, 246, 0.5)',
               }}
             />
+            <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-white/60 text-sm">
+              {selectedIndex + 1} / {images.length}
+            </div>
           </div>
         </div>
       )}

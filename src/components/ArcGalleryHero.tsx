@@ -31,6 +31,8 @@ const ArcGalleryHero = ({
   });
   const [rotation, setRotation] = useState(0);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [isOverGallery, setIsOverGallery] = useState(false);
   const galleryRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,9 +52,23 @@ const ArcGalleryHero = ({
     return () => window.removeEventListener('resize', handleResize);
   }, [radiusLg, radiusMd, radiusSm, cardSizeLg, cardSizeMd, cardSizeSm]);
 
+  useEffect(() => {
+    const preventScroll = (e: WheelEvent) => {
+      if (isOverGallery) {
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener('wheel', preventScroll, { passive: false });
+    return () => window.removeEventListener('wheel', preventScroll);
+  }, [isOverGallery]);
+
   const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    setRotation(prev => prev + e.deltaY * 0.1);
+    if (isOverGallery) {
+      e.preventDefault();
+      e.stopPropagation();
+      setRotation(prev => prev + e.deltaY * 0.1);
+    }
   };
 
   const count = Math.max(images.length, 2);
@@ -68,6 +84,8 @@ const ArcGalleryHero = ({
           height: dimensions.radius * 1.2,
         }}
         onWheel={handleWheel}
+        onMouseEnter={() => setIsOverGallery(true)}
+        onMouseLeave={() => setIsOverGallery(false)}
       >
         <div className="absolute left-1/2 bottom-0 -translate-x-1/2">
           {images.map((src, i) => {
@@ -94,9 +112,10 @@ const ArcGalleryHero = ({
                 }}
                 onMouseEnter={() => setHoveredIndex(i)}
                 onMouseLeave={() => setHoveredIndex(null)}
+                onClick={() => setSelectedIndex(i)}
               >
                 <div
-                  className="relative rounded-2xl shadow-xl overflow-hidden ring-1 ring-border bg-card w-full h-full"
+                  className="relative rounded-2xl shadow-xl overflow-hidden ring-1 ring-border bg-card w-full h-full cursor-pointer"
                   style={{ 
                     transform: `rotate(${angle / 4}deg) ${isHovered ? 'scale(1.15)' : 'scale(1)'}`,
                     transition: 'transform 0.3s ease-out',
@@ -157,6 +176,34 @@ const ArcGalleryHero = ({
           </div>
         </div>
       </div>
+
+      {selectedIndex !== null && (
+        <div 
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+          onClick={() => setSelectedIndex(null)}
+        >
+          <div 
+            className="relative max-w-5xl w-full max-h-[90vh] animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setSelectedIndex(null)}
+              className="absolute -top-12 right-0 text-white hover:text-primary transition-colors text-2xl font-bold"
+            >
+              ✕
+            </button>
+            <img
+              src={images[selectedIndex]}
+              alt=""
+              className="w-full h-full object-contain rounded-2xl shadow-2xl"
+              style={{
+                maxHeight: '90vh',
+                boxShadow: '0 0 60px 20px rgba(139, 92, 246, 0.5)',
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes smoke {

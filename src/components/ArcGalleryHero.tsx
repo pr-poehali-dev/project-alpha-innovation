@@ -19,6 +19,13 @@ type Collection = {
   position: { x: number; y: number };
 };
 
+type FlyingImage = {
+  src: string;
+  startPos: { x: number; y: number };
+  endPos: { x: number; y: number };
+  id: string;
+};
+
 const ArcGalleryHero = ({
   images,
   startAngle = -110,
@@ -42,8 +49,11 @@ const ArcGalleryHero = ({
   const [draggedImage, setDraggedImage] = useState<{ src: string; index: number } | null>(null);
   const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
   const [collections, setCollections] = useState<Collection[]>([]);
+  const [hoveredCollectionId, setHoveredCollectionId] = useState<string | null>(null);
+  const [flyingImages, setFlyingImages] = useState<FlyingImage[]>([]);
   const galleryRef = useRef<HTMLDivElement>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
+  const collectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   useEffect(() => {
     const handleResize = () => {
@@ -107,13 +117,47 @@ const ArcGalleryHero = ({
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!draggedImage) return;
     setDragPosition({ x: e.clientX, y: e.clientY });
+
+    let foundHover = false;
+    collections.forEach(collection => {
+      const ref = collectionRefs.current.get(collection.id);
+      if (!ref) return;
+      
+      const rect = ref.getBoundingClientRect();
+      const isOver = 
+        e.clientX >= rect.left &&
+        e.clientX <= rect.right &&
+        e.clientY >= rect.top &&
+        e.clientY <= rect.bottom;
+      
+      if (isOver) {
+        foundHover = true;
+        setHoveredCollectionId(collection.id);
+      }
+    });
+
+    if (!foundHover) {
+      setHoveredCollectionId(null);
+    }
+  };
+
+  const createFlyingAnimation = (startPos: { x: number; y: number }, endPos: { x: number; y: number }, src: string) => {
+    const flyingId = Date.now().toString() + Math.random();
+    setFlyingImages(prev => [...prev, { src, startPos, endPos, id: flyingId }]);
+    
+    setTimeout(() => {
+      setFlyingImages(prev => prev.filter(f => f.id !== flyingId));
+    }, 600);
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
     if (!draggedImage) return;
 
     const galleryBounds = galleryRef.current?.getBoundingClientRect();
-    if (!galleryBounds) return;
+    if (!galleryBounds) {
+      setDraggedImage(null);
+      return;
+    }
 
     const isOutsideGallery = 
       e.clientY < galleryBounds.top - 50 || 
@@ -121,16 +165,41 @@ const ArcGalleryHero = ({
       e.clientX < galleryBounds.left - 50 ||
       e.clientX > galleryBounds.right + 50;
 
-    if (isOutsideGallery) {
-      const newCollection: Collection = {
-        id: Date.now().toString(),
-        images: [draggedImage.src],
-        position: { x: e.clientX, y: e.clientY },
-      };
-      setCollections(prev => [...prev, newCollection]);
+    if (hoveredCollectionId) {
+      const collection = collections.find(c => c.id === hoveredCollectionId);
+      if (collection) {
+        createFlyingAnimation(
+          { x: e.clientX, y: e.clientY },
+          collection.position,
+          draggedImage.src
+        );
+        
+        setCollections(prev => prev.map(c => 
+          c.id === hoveredCollectionId 
+            ? { ...c, images: [...c.images, draggedImage.src] }
+            : c
+        ));
+      }
+    } else if (isOutsideGallery) {
+      const endPos = { x: e.clientX, y: e.clientY };
+      createFlyingAnimation(
+        { x: e.clientX, y: e.clientY },
+        endPos,
+        draggedImage.src
+      );
+
+      setTimeout(() => {
+        const newCollection: Collection = {
+          id: Date.now().toString(),
+          images: [draggedImage.src],
+          position: endPos,
+        };
+        setCollections(prev => [...prev, newCollection]);
+      }, 300);
     }
 
     setDraggedImage(null);
+    setHoveredCollectionId(null);
   };
 
   const count = Math.max(images.length, 2);
@@ -272,37 +341,84 @@ const ArcGalleryHero = ({
         </div>
       )}
 
-      {collections.map((collection) => (
+      {flyingImages.map((flying) => (
         <div
-          key={collection.id}
-          className="fixed z-40 animate-scale-in"
+          key={flying.id}
+          className="fixed pointer-events-none z-[90]"
           style={{
-            left: collection.position.x - 80,
-            top: collection.position.y - 80,
-          }}
+            left: flying.startPos.x - 60,
+            top: flying.startPos.y - 60,
+            width: 120,
+            height: 120,
+            animation: 'fly-to-folder 0.6s ease-out forwards',
+            '--end-x': `${flying.endPos.x - flying.startPos.x}px`,
+            '--end-y': `${flying.endPos.y - flying.startPos.y}px`,
+          } as React.CSSProperties}
         >
-          <div className="relative group">
-            <div className="w-40 h-40 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border-2 border-primary/50 backdrop-blur-sm shadow-xl flex flex-col items-center justify-center p-4 hover:scale-105 transition-transform">
-              <div className="w-20 h-20 rounded-xl overflow-hidden mb-2 shadow-lg ring-2 ring-primary/30">
-                <img
-                  src={collection.images[0]}
-                  alt=""
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="text-xs text-primary font-semibold bg-background/80 px-2 py-1 rounded-full">
-                {collection.images.length} фото
-              </div>
-            </div>
-            <button
-              onClick={() => setCollections(prev => prev.filter(c => c.id !== collection.id))}
-              className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs hover:scale-110 transition-transform shadow-lg"
-            >
-              ✕
-            </button>
+          <div className="relative w-full h-full rounded-2xl shadow-2xl overflow-hidden ring-2 ring-primary">
+            <img
+              src={flying.src}
+              alt=""
+              className="w-full h-full object-cover"
+            />
           </div>
         </div>
       ))}
+
+      {collections.map((collection) => {
+        const isHovered = hoveredCollectionId === collection.id;
+        return (
+          <div
+            key={collection.id}
+            ref={(el) => {
+              if (el) collectionRefs.current.set(collection.id, el);
+              else collectionRefs.current.delete(collection.id);
+            }}
+            className="fixed z-40 animate-scale-in"
+            style={{
+              left: collection.position.x - 80,
+              top: collection.position.y - 80,
+            }}
+          >
+            <div className="relative group">
+              <div 
+                className={`w-40 h-40 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border-2 backdrop-blur-sm shadow-xl flex flex-col items-center justify-center p-4 transition-all duration-300 ${
+                  isHovered 
+                    ? 'border-primary scale-110 shadow-2xl ring-4 ring-primary/30' 
+                    : 'border-primary/50 hover:scale-105'
+                }`}
+              >
+                <div className="grid grid-cols-2 gap-1 w-20 h-20 mb-2">
+                  {collection.images.slice(0, 4).map((img, idx) => (
+                    <div 
+                      key={idx} 
+                      className="rounded-lg overflow-hidden shadow-lg ring-1 ring-primary/30"
+                    >
+                      <img
+                        src={img}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ))}
+                  {collection.images.length < 4 && [...Array(4 - collection.images.length)].map((_, idx) => (
+                    <div key={`empty-${idx}`} className="rounded-lg bg-primary/10" />
+                  ))}
+                </div>
+                <div className="text-xs text-primary font-semibold bg-background/80 px-2 py-1 rounded-full">
+                  {collection.images.length} фото
+                </div>
+              </div>
+              <button
+                onClick={() => setCollections(prev => prev.filter(c => c.id !== collection.id))}
+                className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs hover:scale-110 transition-transform shadow-lg"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        );
+      })}
 
       {selectedIndex !== null && (
         <div 
@@ -378,6 +494,16 @@ const ArcGalleryHero = ({
           to {
             transform: scale(1);
             opacity: 1;
+          }
+        }
+        @keyframes fly-to-folder {
+          0% {
+            transform: translate(0, 0) scale(1) rotate(0deg);
+            opacity: 1;
+          }
+          100% {
+            transform: translate(var(--end-x), var(--end-y)) scale(0.3) rotate(360deg);
+            opacity: 0;
           }
         }
       `}</style>

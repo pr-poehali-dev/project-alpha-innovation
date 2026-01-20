@@ -13,6 +13,12 @@ type ArcGalleryHeroProps = {
   className?: string;
 };
 
+type Collection = {
+  id: string;
+  images: string[];
+  position: { x: number; y: number };
+};
+
 const ArcGalleryHero = ({
   images,
   startAngle = -110,
@@ -33,7 +39,11 @@ const ArcGalleryHero = ({
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [isOverGallery, setIsOverGallery] = useState(false);
+  const [draggedImage, setDraggedImage] = useState<{ src: string; index: number } | null>(null);
+  const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
+  const [collections, setCollections] = useState<Collection[]>([]);
   const galleryRef = useRef<HTMLDivElement>(null);
+  const sectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -81,18 +91,59 @@ const ArcGalleryHero = ({
   }, [selectedIndex, images.length]);
 
   const handleWheel = (e: React.WheelEvent) => {
-    if (isOverGallery) {
-      e.preventDefault();
-      e.stopPropagation();
-      setRotation(prev => prev + e.deltaY * 0.1);
+    e.preventDefault();
+    e.stopPropagation();
+    setRotation(prev => prev + e.deltaY * 0.1);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent, src: string, index: number) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDraggedImage({ src, index });
+    setDragPosition({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!draggedImage) return;
+    setDragPosition({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (!draggedImage) return;
+
+    const galleryBounds = galleryRef.current?.getBoundingClientRect();
+    if (!galleryBounds) return;
+
+    const isOutsideGallery = 
+      e.clientY < galleryBounds.top - 50 || 
+      e.clientY > galleryBounds.bottom + 50 ||
+      e.clientX < galleryBounds.left - 50 ||
+      e.clientX > galleryBounds.right + 50;
+
+    if (isOutsideGallery) {
+      const newCollection: Collection = {
+        id: Date.now().toString(),
+        images: [draggedImage.src],
+        position: { x: e.clientX, y: e.clientY },
+      };
+      setCollections(prev => [...prev, newCollection]);
     }
+
+    setDraggedImage(null);
   };
 
   const count = Math.max(images.length, 2);
   const step = (endAngle - startAngle) / (count - 1);
 
   return (
-    <section className={`relative overflow-hidden bg-background min-h-screen flex flex-col ${className}`}>
+    <section 
+      ref={sectionRef}
+      className={`relative overflow-visible bg-background min-h-screen flex flex-col ${className}`}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      style={{ touchAction: 'pan-y' }}
+    >
       <div
         ref={galleryRef}
         className="relative mx-auto cursor-grab active:cursor-grabbing"
@@ -111,6 +162,7 @@ const ArcGalleryHero = ({
             const x = Math.cos(angleRad) * dimensions.radius;
             const y = Math.sin(angleRad) * dimensions.radius;
             const isHovered = hoveredIndex === i;
+            const isDragging = draggedImage?.index === i;
 
             return (
               <div
@@ -126,19 +178,25 @@ const ArcGalleryHero = ({
                   animationFillMode: 'forwards',
                   zIndex: isHovered ? count + 10 : count - i,
                   transition: 'z-index 0.3s, filter 0.3s',
+                  opacity: isDragging ? 0.3 : undefined,
                 }}
-                onMouseEnter={() => setHoveredIndex(i)}
+                onMouseEnter={() => !draggedImage && setHoveredIndex(i)}
                 onMouseLeave={() => setHoveredIndex(null)}
-                onClick={() => setSelectedIndex(i)}
               >
                 <div
-                  className="relative rounded-2xl shadow-xl overflow-hidden ring-1 ring-border bg-card w-full h-full cursor-pointer"
+                  className="relative rounded-2xl shadow-xl overflow-hidden ring-1 ring-border bg-card w-full h-full cursor-grab active:cursor-grabbing"
                   style={{ 
                     transform: `rotate(${angle / 4}deg) ${isHovered ? 'scale(1.15)' : 'scale(1)'}`,
                     transition: 'transform 0.3s ease-out',
                   }}
+                  onMouseDown={(e) => handleMouseDown(e, src, i)}
+                  onClick={(e) => {
+                    if (!draggedImage) {
+                      setSelectedIndex(i);
+                    }
+                  }}
                 >
-                  {isHovered && (
+                  {isHovered && !draggedImage && (
                     <>
                       <div 
                         className="absolute inset-0 pointer-events-none"
@@ -165,7 +223,7 @@ const ArcGalleryHero = ({
                   <img
                     src={src}
                     alt=""
-                    className="block w-full h-full object-cover"
+                    className="block w-full h-full object-cover pointer-events-none"
                     draggable={false}
                   />
                 </div>
@@ -193,6 +251,58 @@ const ArcGalleryHero = ({
           </div>
         </div>
       </div>
+
+      {draggedImage && (
+        <div
+          className="fixed pointer-events-none z-[100]"
+          style={{
+            left: dragPosition.x - 60,
+            top: dragPosition.y - 60,
+            width: 120,
+            height: 120,
+          }}
+        >
+          <div className="relative w-full h-full rounded-2xl shadow-2xl overflow-hidden ring-2 ring-primary animate-pulse">
+            <img
+              src={draggedImage.src}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
+      )}
+
+      {collections.map((collection) => (
+        <div
+          key={collection.id}
+          className="fixed z-40 animate-scale-in"
+          style={{
+            left: collection.position.x - 80,
+            top: collection.position.y - 80,
+          }}
+        >
+          <div className="relative group">
+            <div className="w-40 h-40 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border-2 border-primary/50 backdrop-blur-sm shadow-xl flex flex-col items-center justify-center p-4 hover:scale-105 transition-transform">
+              <div className="w-20 h-20 rounded-xl overflow-hidden mb-2 shadow-lg ring-2 ring-primary/30">
+                <img
+                  src={collection.images[0]}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="text-xs text-primary font-semibold bg-background/80 px-2 py-1 rounded-full">
+                {collection.images.length} фото
+              </div>
+            </div>
+            <button
+              onClick={() => setCollections(prev => prev.filter(c => c.id !== collection.id))}
+              className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs hover:scale-110 transition-transform shadow-lg"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      ))}
 
       {selectedIndex !== null && (
         <div 
@@ -258,6 +368,16 @@ const ArcGalleryHero = ({
           50% { 
             transform: translateY(-20px) scale(1.1);
             opacity: 0.3;
+          }
+        }
+        @keyframes scale-in {
+          from {
+            transform: scale(0);
+            opacity: 0;
+          }
+          to {
+            transform: scale(1);
+            opacity: 1;
           }
         }
       `}</style>

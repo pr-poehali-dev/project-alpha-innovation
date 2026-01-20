@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import Icon from '@/components/ui/icon';
 
 type ArcGalleryHeroProps = {
   images: string[];
@@ -15,6 +16,7 @@ type ArcGalleryHeroProps = {
 
 type Collection = {
   id: string;
+  name: string;
   images: string[];
   position: { x: number; y: number };
 };
@@ -46,11 +48,14 @@ const ArcGalleryHero = ({
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [isOverGallery, setIsOverGallery] = useState(false);
-  const [draggedImage, setDraggedImage] = useState<{ src: string; index: number } | null>(null);
+  const [draggedImage, setDraggedImage] = useState<{ src: string; index: number; fromCollection?: string } | null>(null);
   const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
   const [collections, setCollections] = useState<Collection[]>([]);
   const [hoveredCollectionId, setHoveredCollectionId] = useState<string | null>(null);
   const [flyingImages, setFlyingImages] = useState<FlyingImage[]>([]);
+  const [openedCollectionId, setOpenedCollectionId] = useState<string | null>(null);
+  const [editingCollectionId, setEditingCollectionId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
   const galleryRef = useRef<HTMLDivElement>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
   const collectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -106,11 +111,11 @@ const ArcGalleryHero = ({
     setRotation(prev => prev + e.deltaY * 0.1);
   };
 
-  const handleMouseDown = (e: React.MouseEvent, src: string, index: number) => {
+  const handleMouseDown = (e: React.MouseEvent, src: string, index: number, fromCollection?: string) => {
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
-    setDraggedImage({ src, index });
+    setDraggedImage({ src, index, fromCollection });
     setDragPosition({ x: e.clientX, y: e.clientY });
   };
 
@@ -120,6 +125,8 @@ const ArcGalleryHero = ({
 
     let foundHover = false;
     collections.forEach(collection => {
+      if (collection.id === draggedImage.fromCollection) return;
+      
       const ref = collectionRefs.current.get(collection.id);
       if (!ref) return;
       
@@ -154,18 +161,8 @@ const ArcGalleryHero = ({
     if (!draggedImage) return;
 
     const galleryBounds = galleryRef.current?.getBoundingClientRect();
-    if (!galleryBounds) {
-      setDraggedImage(null);
-      return;
-    }
 
-    const isOutsideGallery = 
-      e.clientY < galleryBounds.top - 50 || 
-      e.clientY > galleryBounds.bottom + 50 ||
-      e.clientX < galleryBounds.left - 50 ||
-      e.clientX > galleryBounds.right + 50;
-
-    if (hoveredCollectionId) {
+    if (hoveredCollectionId && hoveredCollectionId !== draggedImage.fromCollection) {
       const collection = collections.find(c => c.id === hoveredCollectionId);
       if (collection) {
         createFlyingAnimation(
@@ -177,33 +174,66 @@ const ArcGalleryHero = ({
         setCollections(prev => prev.map(c => 
           c.id === hoveredCollectionId 
             ? { ...c, images: [...c.images, draggedImage.src] }
+            : c.id === draggedImage.fromCollection
+            ? { ...c, images: c.images.filter(img => img !== draggedImage.src) }
             : c
         ));
       }
-    } else if (isOutsideGallery) {
-      const endPos = { x: e.clientX, y: e.clientY };
-      createFlyingAnimation(
-        { x: e.clientX, y: e.clientY },
-        endPos,
-        draggedImage.src
-      );
+    } else if (draggedImage.fromCollection) {
+      setCollections(prev => prev.map(c => 
+        c.id === draggedImage.fromCollection
+          ? { ...c, images: c.images.filter(img => img !== draggedImage.src) }
+          : c
+      ));
+    } else {
+      const isOutsideGallery = !galleryBounds || 
+        e.clientY < galleryBounds.top - 50 || 
+        e.clientY > galleryBounds.bottom + 50 ||
+        e.clientX < galleryBounds.left - 50 ||
+        e.clientX > galleryBounds.right + 50;
 
-      setTimeout(() => {
-        const newCollection: Collection = {
-          id: Date.now().toString(),
-          images: [draggedImage.src],
-          position: endPos,
-        };
-        setCollections(prev => [...prev, newCollection]);
-      }, 300);
+      if (isOutsideGallery) {
+        const endPos = { x: e.clientX, y: e.clientY };
+        createFlyingAnimation(
+          { x: e.clientX, y: e.clientY },
+          endPos,
+          draggedImage.src
+        );
+
+        setTimeout(() => {
+          const newCollection: Collection = {
+            id: Date.now().toString(),
+            name: 'Новая папка',
+            images: [draggedImage.src],
+            position: endPos,
+          };
+          setCollections(prev => [...prev, newCollection]);
+        }, 300);
+      }
     }
 
     setDraggedImage(null);
     setHoveredCollectionId(null);
   };
 
+  const handleDeleteCollection = (collectionId: string) => {
+    setCollections(prev => prev.filter(c => c.id !== collectionId));
+    if (openedCollectionId === collectionId) {
+      setOpenedCollectionId(null);
+    }
+  };
+
+  const handleRenameCollection = (collectionId: string, newName: string) => {
+    setCollections(prev => prev.map(c => 
+      c.id === collectionId ? { ...c, name: newName } : c
+    ));
+    setEditingCollectionId(null);
+  };
+
   const count = Math.max(images.length, 2);
   const step = (endAngle - startAngle) / (count - 1);
+
+  const openedCollection = collections.find(c => c.id === openedCollectionId);
 
   return (
     <section 
@@ -231,7 +261,7 @@ const ArcGalleryHero = ({
             const x = Math.cos(angleRad) * dimensions.radius;
             const y = Math.sin(angleRad) * dimensions.radius;
             const isHovered = hoveredIndex === i;
-            const isDragging = draggedImage?.index === i;
+            const isDragging = draggedImage?.index === i && !draggedImage.fromCollection;
 
             return (
               <div
@@ -367,6 +397,8 @@ const ArcGalleryHero = ({
 
       {collections.map((collection) => {
         const isHovered = hoveredCollectionId === collection.id;
+        const isEditing = editingCollectionId === collection.id;
+        
         return (
           <div
             key={collection.id}
@@ -382,11 +414,12 @@ const ArcGalleryHero = ({
           >
             <div className="relative group">
               <div 
-                className={`w-40 h-40 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border-2 backdrop-blur-sm shadow-xl flex flex-col items-center justify-center p-4 transition-all duration-300 ${
+                className={`w-40 h-40 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border-2 backdrop-blur-sm shadow-xl flex flex-col items-center justify-center p-4 transition-all duration-300 cursor-pointer ${
                   isHovered 
                     ? 'border-primary scale-110 shadow-2xl ring-4 ring-primary/30' 
                     : 'border-primary/50 hover:scale-105'
                 }`}
+                onClick={() => setOpenedCollectionId(collection.id)}
               >
                 <div className="grid grid-cols-2 gap-1 w-20 h-20 mb-2">
                   {collection.images.slice(0, 4).map((img, idx) => (
@@ -405,13 +438,43 @@ const ArcGalleryHero = ({
                     <div key={`empty-${idx}`} className="rounded-lg bg-primary/10" />
                   ))}
                 </div>
-                <div className="text-xs text-primary font-semibold bg-background/80 px-2 py-1 rounded-full">
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    onBlur={() => handleRenameCollection(collection.id, editingName)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleRenameCollection(collection.id, editingName);
+                      if (e.key === 'Escape') setEditingCollectionId(null);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    autoFocus
+                    className="text-xs text-primary font-semibold bg-background/80 px-2 py-1 rounded-full text-center w-full"
+                  />
+                ) : (
+                  <div 
+                    className="text-xs text-primary font-semibold bg-background/80 px-2 py-1 rounded-full truncate w-full text-center"
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setEditingCollectionId(collection.id);
+                      setEditingName(collection.name);
+                    }}
+                  >
+                    {collection.name}
+                  </div>
+                )}
+                <div className="text-[10px] text-muted-foreground mt-1">
                   {collection.images.length} фото
                 </div>
               </div>
               <button
-                onClick={() => setCollections(prev => prev.filter(c => c.id !== collection.id))}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteCollection(collection.id);
+                }}
                 className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs hover:scale-110 transition-transform shadow-lg"
+                title="Удалить папку"
               >
                 ✕
               </button>
@@ -419,6 +482,69 @@ const ArcGalleryHero = ({
           </div>
         );
       })}
+
+      {openedCollection && (
+        <div 
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+          onClick={() => setOpenedCollectionId(null)}
+        >
+          <div 
+            className="relative max-w-6xl w-full max-h-[90vh] bg-card/95 backdrop-blur-md rounded-3xl shadow-2xl p-8 overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-foreground">{openedCollection.name}</h2>
+              <button
+                onClick={() => setOpenedCollectionId(null)}
+                className="w-10 h-10 rounded-full bg-muted hover:bg-muted/80 text-foreground transition-all flex items-center justify-center"
+                title="Закрыть"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {openedCollection.images.map((img, idx) => (
+                <div 
+                  key={idx}
+                  className="relative group aspect-square rounded-xl overflow-hidden shadow-lg ring-1 ring-border hover:ring-2 hover:ring-primary transition-all"
+                >
+                  <img
+                    src={img}
+                    alt=""
+                    className="w-full h-full object-cover cursor-grab active:cursor-grabbing"
+                    draggable={false}
+                    onMouseDown={(e) => handleMouseDown(e, img, idx, openedCollection.id)}
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <button
+                      onClick={() => {
+                        setCollections(prev => prev.map(c => 
+                          c.id === openedCollection.id
+                            ? { ...c, images: c.images.filter(i => i !== img) }
+                            : c
+                        ));
+                      }}
+                      className="w-8 h-8 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center hover:scale-110 transition-transform"
+                      title="Удалить из папки"
+                    >
+                      <Icon name="Trash2" size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {openedCollection.images.length === 0 && (
+              <div className="text-center py-20 text-muted-foreground">
+                <Icon name="FolderOpen" size={48} className="mx-auto mb-4 opacity-50" />
+                <p>Папка пуста</p>
+                <p className="text-sm mt-2">Перетащите сюда картинки из галереи</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {selectedIndex !== null && (
         <div 

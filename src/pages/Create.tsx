@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { jsPDF } from 'jspdf';
 import Icon from '@/components/ui/icon';
 import api, { type GeneratedScript } from '@/lib/api';
 
@@ -162,6 +163,101 @@ const Create = () => {
     setActiveScene(0);
     setIsPlaying(true);
     setTypedText('');
+  };
+
+  const handleExportPDF = () => {
+    if (!script) return;
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    const contentW = pageW - margin * 2;
+    let y = 20;
+
+    const addText = (text: string, size: number, bold: boolean, color: [number, number, number] = [30, 30, 30]) => {
+      doc.setFontSize(size);
+      doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      doc.setTextColor(...color);
+      const lines = doc.splitTextToSize(text, contentW);
+      lines.forEach((line: string) => {
+        if (y > 270) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.text(line, margin, y);
+        y += size * 0.45;
+      });
+      y += 2;
+    };
+
+    const addLine = () => {
+      if (y > 270) { doc.addPage(); y = 20; }
+      doc.setDrawColor(200, 200, 200);
+      doc.line(margin, y, pageW - margin, y);
+      y += 6;
+    };
+
+    doc.setFillColor(100, 60, 200);
+    doc.rect(0, 0, pageW, 40, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    doc.text('VibeFactory', margin, 18);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('AI Video Script', margin, 26);
+    doc.text(new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }), margin, 33);
+    y = 50;
+
+    addText(script.title, 18, true, [30, 30, 30]);
+    y += 4;
+    addText(script.hook, 12, false, [100, 60, 200]);
+    y += 4;
+
+    addLine();
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(120, 120, 120);
+    const info = `Avatar: ${avatar.name}  |  Platform: ${platform.name}  |  Style: ${style.name}  |  Duration: ${duration}s`;
+    doc.text(info, margin, y);
+    y += 10;
+
+    addLine();
+    addText('SCENARIO', 14, true, [60, 60, 60]);
+    y += 2;
+
+    script.scenes.forEach((scene, i) => {
+      if (y > 250) { doc.addPage(); y = 20; }
+
+      doc.setFillColor(245, 245, 250);
+      doc.roundedRect(margin - 2, y - 4, contentW + 4, 8, 2, 2, 'F');
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(100, 60, 200);
+      doc.text(`Scene ${i + 1}  [${scene.time}]`, margin, y);
+      doc.setTextColor(150, 150, 150);
+      doc.text(scene.emotion, pageW - margin - doc.getTextWidth(scene.emotion), y);
+      y += 8;
+
+      addText(scene.text, 11, false, [40, 40, 40]);
+      y += 1;
+      addText(`Visual: ${scene.visual}`, 9, false, [130, 130, 130]);
+      y += 4;
+    });
+
+    addLine();
+    addText('CTA', 12, true, [60, 60, 60]);
+    addText(script.cta, 11, false, [40, 40, 40]);
+    y += 4;
+
+    if (script.hashtags.length > 0) {
+      addLine();
+      addText('HASHTAGS', 12, true, [60, 60, 60]);
+      addText(script.hashtags.map(t => '#' + t).join('  '), 10, false, [100, 60, 200]);
+    }
+
+    const fileName = script.title.replace(/[^a-zA-Zа-яА-Я0-9]/g, '_').slice(0, 40);
+    doc.save(`${fileName}_script.pdf`);
   };
 
   return (
@@ -503,6 +599,13 @@ const Create = () => {
                       ) : (
                         <><Icon name="Save" size={20} /> Сохранить проект</>
                       )}
+                    </button>
+                    <button
+                      onClick={handleExportPDF}
+                      className="px-6 py-4 rounded-2xl bg-gradient-to-r from-red-500 to-orange-500 text-white font-semibold hover:shadow-xl hover:shadow-red-500/20 transition-all flex items-center gap-2"
+                    >
+                      <Icon name="FileDown" size={20} />
+                      PDF
                     </button>
                     <button
                       onClick={handleGenerate}

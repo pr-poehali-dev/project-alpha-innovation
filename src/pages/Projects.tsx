@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { jsPDF } from 'jspdf';
 import Icon from '@/components/ui/icon';
 import api, { type VideoProject, type GeneratedScript } from '@/lib/api';
 
@@ -226,7 +227,7 @@ const Projects = () => {
                 <p className="text-muted-foreground">Сценарий не найден</p>
               )}
 
-              <div className="flex gap-3 mt-8">
+              <div className="flex gap-3 mt-8 flex-wrap">
                 <button
                   onClick={() => {
                     if (viewScript) {
@@ -238,7 +239,52 @@ const Projects = () => {
                   className="flex-1 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
                 >
                   <Icon name="Copy" size={18} />
-                  Скопировать сценарий
+                  Скопировать
+                </button>
+                <button
+                  onClick={() => {
+                    if (!viewScript || !viewProject) return;
+                    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+                    const pw = doc.internal.pageSize.getWidth();
+                    const m = 20;
+                    const cw = pw - m * 2;
+                    let cy = 20;
+                    const txt = (t: string, sz: number, b: boolean, c: [number, number, number] = [30,30,30]) => {
+                      doc.setFontSize(sz); doc.setFont('helvetica', b ? 'bold' : 'normal'); doc.setTextColor(...c);
+                      doc.splitTextToSize(t, cw).forEach((ln: string) => { if (cy > 270) { doc.addPage(); cy = 20; } doc.text(ln, m, cy); cy += sz * 0.45; }); cy += 2;
+                    };
+                    doc.setFillColor(100, 60, 200); doc.rect(0, 0, pw, 40, 'F');
+                    doc.setTextColor(255,255,255); doc.setFontSize(22); doc.setFont('helvetica','bold'); doc.text('VibeFactory', m, 18);
+                    doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.text('AI Video Script', m, 26);
+                    doc.text(new Date().toLocaleDateString('ru-RU', { day:'numeric', month:'long', year:'numeric' }), m, 33);
+                    cy = 50;
+                    txt(viewScript.title, 18, true);
+                    cy += 4;
+                    txt(viewScript.hook, 12, false, [100,60,200]);
+                    cy += 4;
+                    doc.setDrawColor(200,200,200); doc.line(m, cy, pw-m, cy); cy += 6;
+                    doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(120,120,120);
+                    doc.text(`${viewProject.avatar_name} | ${PLATFORM_NAMES[viewProject.platform]} | ${viewProject.duration_sec}s`, m, cy); cy += 10;
+                    doc.line(m, cy, pw-m, cy); cy += 6;
+                    txt('SCENARIO', 14, true, [60,60,60]); cy += 2;
+                    viewScript.scenes.forEach((sc, si) => {
+                      if (cy > 250) { doc.addPage(); cy = 20; }
+                      doc.setFillColor(245,245,250); doc.roundedRect(m-2, cy-4, cw+4, 8, 2, 2, 'F');
+                      doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(100,60,200);
+                      doc.text(`Scene ${si+1} [${sc.time}]`, m, cy);
+                      doc.setTextColor(150,150,150); doc.text(sc.emotion, pw-m-doc.getTextWidth(sc.emotion), cy); cy += 8;
+                      txt(sc.text, 11, false, [40,40,40]); cy += 1;
+                      txt(`Visual: ${sc.visual}`, 9, false, [130,130,130]); cy += 4;
+                    });
+                    doc.line(m, cy, pw-m, cy); cy += 6;
+                    txt('CTA', 12, true, [60,60,60]); txt(viewScript.cta, 11, false, [40,40,40]); cy += 4;
+                    if (viewScript.hashtags.length > 0) { doc.line(m, cy, pw-m, cy); cy += 6; txt('HASHTAGS', 12, true, [60,60,60]); txt(viewScript.hashtags.map(t=>'#'+t).join('  '), 10, false, [100,60,200]); }
+                    doc.save(`${viewScript.title.replace(/[^a-zA-Za-яА-Я0-9]/g,'_').slice(0,40)}_script.pdf`);
+                  }}
+                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 text-white font-medium hover:shadow-lg transition-all flex items-center gap-2"
+                >
+                  <Icon name="FileDown" size={18} />
+                  PDF
                 </button>
                 <button
                   onClick={() => handleDelete(viewProject.id)}

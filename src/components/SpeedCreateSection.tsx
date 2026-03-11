@@ -10,7 +10,7 @@ const STEPS = [
   { id: 5, label: 'Готово!', icon: 'Rocket', color: '#22c55e', duration: 500 },
 ];
 
-const SpeedCreateSection = () => {
+const SpeedCreateSection = ({ onStart }: { onStart?: () => void }) => {
   const { ref, isVisible } = useScrollReveal({ threshold: 0.2 });
   const [activeStep, setActiveStep] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
@@ -193,6 +193,16 @@ const SpeedCreateSection = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="flex justify-center mt-12">
+          <button
+            onClick={() => onStart?.()}
+            className="px-8 py-4 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 text-white font-semibold text-lg hover:shadow-xl hover:shadow-purple-500/30 transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-3"
+          >
+            <Icon name="Zap" size={20} />
+            Попробовать сейчас
+          </button>
         </div>
       </div>
     </section>

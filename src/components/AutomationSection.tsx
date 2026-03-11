@@ -9,7 +9,7 @@ type ConveyorItem = {
   progress: number;
 };
 
-const AutomationSection = () => {
+const AutomationSection = ({ onStart }: { onStart?: () => void }) => {
   const { ref, isVisible } = useScrollReveal({ threshold: 0.15 });
   const [items, setItems] = useState<ConveyorItem[]>([
     { id: 1, title: 'Обзор продукта #1', status: 'done', progress: 100 },
@@ -180,7 +180,10 @@ const AutomationSection = () => {
               <div className="text-muted-foreground">запущено автоматически</div>
             </div>
 
-            <button className="w-full p-5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold text-lg hover:shadow-xl hover:shadow-amber-500/30 transition-all duration-300 hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3 group">
+            <button
+              onClick={() => onStart?.()}
+              className="w-full p-5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold text-lg hover:shadow-xl hover:shadow-amber-500/30 transition-all duration-300 hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3 group"
+            >
               <Icon name="Play" size={22} className="group-hover:animate-pulse" />
               Запустить конвейер
             </button>

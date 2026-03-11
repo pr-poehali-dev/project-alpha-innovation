@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import ArcGalleryHero from "@/components/ArcGalleryHero";
 import SpeedCreateSection from "@/components/SpeedCreateSection";
 import AvatarsSection from "@/components/AvatarsSection";
@@ -17,6 +18,7 @@ const NAV_ITEMS = [
 ];
 
 const Index = () => {
+  const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState("hero");
   const [scrollProgress, setScrollProgress] = useState(0);
 
@@ -56,6 +58,8 @@ const Index = () => {
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
   };
+
+  const goCreate = () => navigate("/create");
 
   return (
     <main className="relative min-h-screen bg-background">
@@ -99,27 +103,28 @@ const Index = () => {
           cardSizeMd={100}
           cardSizeSm={80}
           className="pt-16 pb-16 md:pt-20 md:pb-20 lg:pt-24 lg:pb-24"
+          onStart={goCreate}
         />
       </div>
 
       <div id="speed">
-        <SpeedCreateSection />
+        <SpeedCreateSection onStart={goCreate} />
       </div>
 
       <div id="avatars">
-        <AvatarsSection />
+        <AvatarsSection onStart={goCreate} />
       </div>
 
       <div id="automation">
-        <AutomationSection />
+        <AutomationSection onStart={goCreate} />
       </div>
 
       <div id="business">
-        <BusinessSection />
+        <BusinessSection onStart={goCreate} />
       </div>
 
       <div id="formats">
-        <FormatsSection />
+        <FormatsSection onStart={goCreate} />
       </div>
 
       <footer className="relative py-16 px-6 bg-card border-t border-border">
@@ -130,9 +135,22 @@ const Index = () => {
           <p className="text-lg text-muted-foreground mb-8 max-w-xl mx-auto">
             Присоединяйтесь к тысячам создателей контента, которые уже используют VibeFactory
           </p>
-          <button className="px-8 py-4 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold text-lg hover:shadow-xl hover:shadow-purple-500/30 transition-all duration-300 hover:scale-105 active:scale-95">
-            Начать бесплатно
-          </button>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <button
+              onClick={goCreate}
+              className="px-8 py-4 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold text-lg hover:shadow-xl hover:shadow-purple-500/30 transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
+            >
+              <Icon name="Sparkles" size={20} />
+              Создать видео бесплатно
+            </button>
+            <button
+              onClick={() => navigate("/projects")}
+              className="px-6 py-4 rounded-full border border-border hover:bg-muted transition-colors text-foreground flex items-center gap-2"
+            >
+              <Icon name="FolderOpen" size={20} />
+              Мои проекты
+            </button>
+          </div>
           <div className="mt-12 text-sm text-muted-foreground">
             VibeFactory — AI-платформа для создания видео-контента
           </div>

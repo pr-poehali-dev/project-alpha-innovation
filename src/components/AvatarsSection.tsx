@@ -17,7 +17,7 @@ const PHRASES = [
   'А вы знали, что AI может всё это?',
 ];
 
-const AvatarsSection = () => {
+const AvatarsSection = ({ onStart }: { onStart?: () => void }) => {
   const { ref, isVisible } = useScrollReveal({ threshold: 0.15 });
   const [selectedAvatar, setSelectedAvatar] = useState(0);
   const [typedText, setTypedText] = useState('');
@@ -199,6 +199,20 @@ const AvatarsSection = () => {
               );
             })}
           </div>
+        </div>
+
+        <div className="flex justify-center mt-12">
+          <button
+            onClick={() => onStart?.()}
+            className="px-8 py-4 rounded-full text-white font-semibold text-lg hover:shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-3"
+            style={{
+              background: `linear-gradient(135deg, ${avatar.accent}, ${avatar.accent}cc)`,
+              boxShadow: `0 8px 30px ${avatar.accent}30`,
+            }}
+          >
+            <Icon name="Video" size={20} />
+            Выбрать аватара и создать видео
+          </button>
         </div>
       </div>
     </section>

@@ -12,6 +12,7 @@ type ArcGalleryHeroProps = {
   cardSizeMd?: number;
   cardSizeSm?: number;
   className?: string;
+  onStart?: () => void;
 };
 
 type Collection = {
@@ -39,6 +40,7 @@ const ArcGalleryHero = ({
   cardSizeMd = 100,
   cardSizeSm = 80,
   className = '',
+  onStart,
 }: ArcGalleryHeroProps) => {
   const [dimensions, setDimensions] = useState({
     radius: radiusLg,
@@ -341,10 +343,16 @@ const ArcGalleryHero = ({
             Создавайте профессиональный видео-контент с AI-аватарами для TikTok, Reels и YouTube Shorts
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <button className="w-full sm:w-auto px-6 py-3 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+            <button
+              onClick={() => onStart?.()}
+              className="w-full sm:w-auto px-6 py-3 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+            >
               Попробовать бесплатно
             </button>
-            <button className="w-full sm:w-auto px-6 py-3 rounded-full border border-border hover:bg-accent hover:text-accent-foreground transition-all duration-200">
+            <button
+              onClick={() => document.getElementById('speed')?.scrollIntoView({ behavior: 'smooth' })}
+              className="w-full sm:w-auto px-6 py-3 rounded-full border border-border hover:bg-accent hover:text-accent-foreground transition-all duration-200"
+            >
               Посмотреть примеры
             </button>
           </div>

@@ -55,7 +55,7 @@ const FEED_ITEMS = [
   { text: 'AI заменит маркетологов?', likes: '23.1K', views: '340K' },
 ];
 
-const FormatsSection = () => {
+const FormatsSection = ({ onStart }: { onStart?: () => void }) => {
   const { ref, isVisible } = useScrollReveal({ threshold: 0.1 });
   const [activePlatform, setActivePlatform] = useState(0);
   const [feedScroll, setFeedScroll] = useState(0);
@@ -214,6 +214,7 @@ const FormatsSection = () => {
 
             <button
               onClick={() => {
+                onStart?.();
                 setShowExport(true);
                 setTimeout(() => setShowExport(false), 3000);
               }}

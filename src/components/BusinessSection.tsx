@@ -45,7 +45,7 @@ const NICHES = [
   },
 ];
 
-const BusinessSection = () => {
+const BusinessSection = ({ onStart }: { onStart?: () => void }) => {
   const { ref, isVisible } = useScrollReveal({ threshold: 0.1 });
   const [activeNiche, setActiveNiche] = useState(0);
   const [tiltStyle, setTiltStyle] = useState<Record<string, React.CSSProperties>>({});
@@ -171,6 +171,7 @@ const BusinessSection = () => {
               </div>
 
               <button
+                onClick={() => onStart?.()}
                 className="px-8 py-4 rounded-full text-white font-semibold text-lg hover:shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-3"
                 style={{
                   background: `linear-gradient(135deg, ${niche.color}, ${niche.color}cc)`,
